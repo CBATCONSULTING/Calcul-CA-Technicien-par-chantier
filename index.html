@@ -1,1 +1,459 @@
 
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Répartition montant chantier — par jours techniciens</title>
+    <style>
+        :root {
+            --bg: #0f172a; /* fond */
+            --card: #f0e68c; /* jaune clair (comme Tkinter) */
+            --ink: #0b1220; /* texte foncé */
+            --muted: #475569; /* slate-600 */
+            --border: #e5d470; /* contour jaune */
+            --accent: #16a34a; /* vert */
+            --danger: #b91c1c; /* rouge */
+            --btn: #111827; /* boutons foncés */
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        html, body {
+            height: 100%
+        }
+
+        body {
+            margin: 0;
+            background: linear-gradient(180deg,#0b1020,#0f172a 30%);
+            color: #e5e7eb;
+            font-family: Tahoma, Segoe UI, system-ui, Arial
+        }
+
+        .container {
+            max-width: 980px;
+            margin: 28px auto;
+            padding: 0 16px
+        }
+
+        .header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px
+        }
+
+        h1 {
+            font-size: 20px;
+            margin: 0
+        }
+
+        .version {
+            color: #9aa7bd;
+            font-size: 12px
+        }
+
+        .card {
+            background: var(--card);
+            color: var(--ink);
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(0,0,0,.25)
+        }
+
+        .panel {
+            padding: 16px
+        }
+
+        label {
+            font-size: 13px;
+            color: #1f2937;
+            margin-bottom: 6px;
+            display: block
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px
+        }
+
+        @media (min-width:720px) {
+            .row {
+                grid-template-columns: 1fr 1fr
+            }
+        }
+
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1.5px solid #d1c164;
+            background: #fff8c2;
+            color: #111;
+            font-size: 15px
+        }
+
+            input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button {
+                height: 28px
+            }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px
+        }
+
+        button, .btn {
+            appearance: none;
+            border: 1px solid #334155;
+            background: var(--btn);
+            color: #e5e7eb;
+            padding: 10px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 700
+        }
+
+            button:hover, .btn:hover {
+                filter: brightness(1.05)
+            }
+
+        .btn-accent {
+            background: #064e3b;
+            border-color: #065f46
+        }
+
+        .btn-danger {
+            background: #4b0d0d;
+            border-color: #7f1d1d
+        }
+
+        .days-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit,minmax(200px,1fr));
+            gap: 10px
+        }
+
+        .alert {
+            border: 1px solid #991b1b;
+            background: #fee2e2;
+            color: #7f1d1d;
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-top: 10px;
+            display: none
+        }
+
+        .results {
+            margin-top: 16px
+        }
+
+        .result-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            background: #fffad1;
+            border: 1.5px solid #e5d470;
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-top: 8px
+        }
+
+        .mono {
+            font-variant-numeric: tabular-nums;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace
+        }
+
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #9aa7bd;
+            font-size: 12px;
+            margin-top: 10px
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Répartition du montant d'un chantier (HT) suivant les jours travaillés</h1>
+            <div class="version">v1.5 · 24/10/2025</div>
+        </div>
+
+        <div class="card panel">
+            <div class="row">
+                <div>
+                    <label for="montant">Montant du chantier HT (€)</label>
+                    <input id="montant" type="text" inputmode="decimal" placeholder="Ex: 12 500,00" />
+                </div>
+                <div>
+                    <label for="nb">Nombre de techniciens (1–20)</label>
+                    <input id="nb" type="number" min="1" max="20" step="1" value="1" />
+                </div>
+            </div>
+
+            <div style="margin-top:12px">
+                <label>Jours travaillés par technicien <small style="color:#475569">(pas de 0,5 — saisie clavier ou sélection)</small></label>
+                <div id="days" class="days-grid"></div>
+                <!-- Suggestions pour saisie rapide -->
+                <datalist id="dl-days">
+                    <option value="0"></option>
+                    <option value="0.5"></option>
+                    <option value="1"></option>
+                    <option value="1.5"></option>
+                    <option value="2"></option>
+                    <option value="2.5"></option>
+                    <option value="3"></option>
+                    <option value="3.5"></option>
+                    <option value="4"></option>
+                    <option value="4.5"></option>
+                    <option value="5"></option>
+                    <option value="5.5"></option>
+                    <option value="6"></option>
+                    <option value="6.5"></option>
+                    <option value="7"></option>
+                    <option value="7.5"></option>
+                    <option value="8"></option>
+                    <option value="8.5"></option>
+                    <option value="9"></option>
+                    <option value="9.5"></option>
+                    <option value="10"></option>
+                </datalist>
+            </div>
+
+            <div class="toolbar">
+                <button id="calc" class="btn-accent">Calculer la répartition</button>
+                <button id="reset" class="btn-danger" type="button">Réinitialiser</button>
+            </div>
+
+            <div id="alert" class="alert"></div>
+
+            <div id="results" class="results" style="display:none">
+                <h3 style="margin:14px 0 6px 0">Résultats</h3>
+                <div id="list"></div>
+                <div id="resume" style="color:#1f2937; margin-top:8px"></div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div>Aucune donnée n'est envoyée : tout se calcule dans votre navigateur.</div>
+            <div>Compat. Chrome, Edge, Firefox</div>
+        </div>
+    </div>
+
+    <script>
+        // ===== Paramètres figés (comme demandé) =====
+        const ROUND_MODE = 'nearest'; // cible : montant arrondi à l'euro
+        const ADJUST_MODE = 'last';   // ajuster uniquement le dernier
+
+        // ===== Utilitaires =====
+        const nbEl = document.getElementById('nb');
+        const montantEl = document.getElementById('montant');
+        const daysWrap = document.getElementById('days');
+        const alertEl = document.getElementById('alert');
+        const resultsEl = document.getElementById('results');
+        const listEl = document.getElementById('list');
+        const resumeEl = document.getElementById('resume');
+
+        const fmtEUR = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' });
+
+        function parseMoneyFR(v) {
+            if (v == null) return NaN;
+            if (typeof v === 'number') return v;
+            let s = String(v).trim();
+            if (!s) return NaN;
+            s = s.replace(/\s+/g, '').replace(/€/g, '').replace(/,/g, '.');
+            const n = Number(s);
+            return Number.isFinite(n) ? n : NaN;
+        }
+
+        function showError(msg) { alertEl.textContent = msg; alertEl.style.display = 'block'; }
+        function clearError() { alertEl.textContent = ''; alertEl.style.display = 'none'; }
+
+        // Arrondi à 0,5 pour uniformité avec les listes demandées
+        function roundToHalf(x) { return Math.round(x * 2) / 2; }
+
+        function renderDaysFields() {
+            const n = Math.max(1, Math.min(20, parseInt(nbEl.value || '1', 10)));
+            // conserver les valeurs déjà saisies
+            const old = Array.from(daysWrap.querySelectorAll('input[data-day]')).map(i => i.value);
+            daysWrap.innerHTML = '';
+
+            function buildInput(initial) {
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.min = '0';
+                input.max = '10';
+                input.step = '0.5';
+                input.placeholder = 'Jours';
+                input.setAttribute('data-day', '1');
+                input.setAttribute('list', 'dl-days');
+                input.setAttribute('inputmode', 'decimal');
+                let v = initial != null && initial !== '' ? String(initial) : '1';
+                // autoriser virgule, puis arrondir au 0,5
+                v = v.replace(',', '.');
+                let num = Number(v);
+                if (!Number.isFinite(num) || num < 0) num = 1;
+                num = Math.min(10, Math.max(0, roundToHalf(num)));
+                input.value = String(num);
+                input.addEventListener('blur', () => {
+                    let val = Number(String(input.value).replace(',', '.'));
+                    if (!Number.isFinite(val)) val = 0;
+                    val = Math.min(10, Math.max(0, roundToHalf(val)));
+                    input.value = String(val);
+                });
+                return input;
+            }
+
+            for (let i = 0; i < n; i++) {
+                const box = document.createElement('div');
+                const inp = buildInput(old[i]);
+                inp.setAttribute('aria-label', `Jours du technicien ${i + 1}`);
+                box.appendChild(inp);
+                daysWrap.appendChild(box);
+            }
+        }
+
+        function copyText(str) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                return navigator.clipboard.writeText(str);
+            }
+            // fallback
+            const ta = document.createElement('textarea');
+            ta.value = str; document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); } finally { document.body.removeChild(ta); }
+            return Promise.resolve();
+        }
+
+        // ===== Apportionment helpers =====
+        function roundPart(x, mode) {
+            if (mode === 'down') return Math.floor(x);
+            if (mode === 'up') return Math.ceil(x);
+            return Math.round(x); // nearest
+        }
+        function targetTotal(montant, mode) {
+            if (mode === 'down') return Math.floor(montant);
+            if (mode === 'up') return Math.ceil(montant);
+            return Math.round(montant); // nearest
+        }
+
+        // ===== Cœur de calcul strict =====
+        function computeAllocationStrict(montant, jours, roundMode = 'nearest', adjustMode = 'last') {
+            const totalJours = jours.reduce((a, b) => a + b, 0);
+            if (!Number.isFinite(montant) || montant <= 0) throw new Error('Montant invalide');
+            if (totalJours <= 0) throw new Error('Total jours invalide');
+
+            const parts = jours.map(j => montant * (j / totalJours));
+            let alloc = parts.map(p => roundPart(p, roundMode));
+
+            const target = targetTotal(montant, roundMode);
+            let diff = target - alloc.reduce((a, b) => a + b, 0);
+            if (diff === 0) return alloc;
+
+            if (adjustMode === 'last') {
+                alloc[alloc.length - 1] += diff;
+                return alloc;
+            }
+
+            // largest remainder
+            const remainders = parts.map((p) => p - roundPart(p, roundMode));
+            const idx = Array.from(remainders.keys());
+            idx.sort((a, b) => diff > 0 ? (remainders[b] - remainders[a]) : (remainders[a] - remainders[b]));
+            const sign = diff > 0 ? 1 : -1;
+            let k = 0; const len = alloc.length;
+            while (diff !== 0) {
+                const i = idx[k % len];
+                alloc[i] += sign;
+                diff -= sign;
+                k++;
+            }
+            return alloc;
+        }
+
+        // ===== Calcul + rendu =====
+        function calculer() {
+            clearError();
+            const montant = parseMoneyFR(montantEl.value);
+            if (!Number.isFinite(montant) || montant <= 0) {
+                showError('Veuillez entrer un montant HT valide (> 0).');
+                return;
+            }
+            const n = Math.max(1, Math.min(20, parseInt(nbEl.value || '1', 10)));
+
+            const jours = Array.from(daysWrap.querySelectorAll('input[data-day]')).slice(0, n).map(i => Number(String(i.value).replace(',', '.')));
+            if (jours.length !== n || jours.some(v => !Number.isFinite(v) || v < 0)) {
+                showError('Veuillez saisir un nombre de jours valide pour chaque technicien (0 ou plus).');
+                return;
+            }
+
+            const montants = computeAllocationStrict(montant, jours, ROUND_MODE, ADJUST_MODE);
+
+            // Affichage
+            listEl.innerHTML = '';
+            montants.forEach((m, idx) => {
+                const row = document.createElement('div');
+                row.className = 'result-item';
+                const label = document.createElement('div');
+                label.textContent = `Technicien ${idx + 1} : ${fmtEUR.format(m)}`;
+                const btn = document.createElement('button');
+                btn.textContent = 'Copier';
+                btn.addEventListener('click', () => copyText(String(m)));
+                row.append(label, btn);
+                listEl.appendChild(row);
+            });
+
+            const somme = montants.reduce((a, b) => a + b, 0);
+            const cible = targetTotal(montant, ROUND_MODE);
+            const ecart = somme - cible;
+            resumeEl.innerHTML = `Somme des montants : <b class="mono">${fmtEUR.format(somme)}</b> — Cible (arrondi à l’euro) : <b class="mono">${fmtEUR.format(cible)}</b> — Mode : ajustement sur le dernier — <b>${ecart === 0 ? 'OK ✅' : 'Écart: ' + fmtEUR.format(ecart)}</b>`;
+
+            resultsEl.style.display = '';
+        }
+
+        // ===== Événements =====
+        nbEl.addEventListener('input', renderDaysFields);
+        document.getElementById('calc').addEventListener('click', calculer);
+        document.getElementById('reset').addEventListener('click', () => {
+            montantEl.value = '';
+            nbEl.value = 1;
+            renderDaysFields();
+            resultsEl.style.display = 'none';
+            clearError();
+        });
+
+        // ===== Tests (console) =====
+        function runTests() {
+            const tests = [];
+            // parseMoneyFR
+            tests.push(['parseMoneyFR("12 500,50€")', parseMoneyFR('12 500,50€') === 12500.5]);
+            tests.push(['parseMoneyFR("0")', parseMoneyFR('0') === 0]);
+            tests.push(['parseMoneyFR("") is NaN', Number.isNaN(parseMoneyFR(''))]);
+
+            // allocation strict avec modes figés (nearest + last)
+            { const m = 1000, j = [1, 1]; const arr = computeAllocationStrict(m, j, ROUND_MODE, ADJUST_MODE); tests.push(['Sum(1000,[1,1])==Math.round(1000)', arr.reduce((a, b) => a + b, 0) === Math.round(1000)]); }
+            { const m = 8451, j = [4, 3, 2, 1]; const arr = computeAllocationStrict(m, j, ROUND_MODE, ADJUST_MODE); tests.push(['Sum(8451,[4,3,2,1])==Math.round(8451)', arr.reduce((a, b) => a + b, 0) === Math.round(8451)]); }
+
+            // non-négativité et entrées avec 0,5
+            { const m = 12000, j = [0.5, 0.5]; const arr = computeAllocationStrict(m, j, ROUND_MODE, ADJUST_MODE); tests.push(['non négatif', arr.every(x => x >= 0)]); tests.push(['Sum(12000,[0.5,0.5])==Math.round(12000)', arr.reduce((a, b) => a + b, 0) === Math.round(12000)]); }
+
+            // robustesse input comma
+            tests.push(['parse keyboard comma 1,5', Number(String('1,5').replace(',', '.')) === 1.5]);
+
+            console.group('%cTests — Répartition chantier', 'color:#60a5fa');
+            for (const [name, ok] of tests) { console[ok ? 'log' : 'error'](`${ok ? '✔' : '✘'} ${name}`); }
+            console.groupEnd();
+        }
+
+        // Init
+        renderDaysFields();
+        runTests();
+    </script>
+</body>
+</html>
